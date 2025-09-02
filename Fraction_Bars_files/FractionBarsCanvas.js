@@ -889,61 +889,60 @@ FractionBarsCanvas.prototype.restoreAState = function(a_new_state) {
 
 
 FractionBarsCanvas.prototype.save = function() {
+    var simplifiedState = {
+        bars: this.bars.map(function(bar) {
+            return {
+                x: bar.x,
+                y: bar.y,
+                w: bar.w,
+                h: bar.h,
+                color: bar.color,
+                label: bar.label,
+                fraction: bar.fraction,
+                isUnitBar: bar.isUnitBar,
+                splits: bar.splits.map(function(split) {
+                    return {
+                        x: split.x,
+                        y: split.y,
+                        w: split.w,
+                        h: split.h,
+                        color: split.color
+                    };
+                })
+            };
+        }),
+        mats: this.mats.map(function(mat) {
+            return {
+                x: mat.x,
+                y: mat.y,
+                w: mat.w,
+                h: mat.h,
+                color: mat.color
+            };
+        }),
+        hiddenButtons: hiddenButtonsName
+    };
 
-	var newstate = new CanvasState(this);
-	newstate.grabBarsAndMats();
+    var state_string = JSON.stringify(simplifiedState);
 
-	newstate.mFBCanvas = null;
+    try {
+        var blob = new Blob([state_string], { type: "text/plain;charset=utf-8" });
+        var select_length = document.getElementById('id_filetext').selectedIndex;
+        var filename;
+        if (select_length < 0) {
+            filename = window.prompt("File name:", "FractionBarsSave.txt");
+        } else {
+            filename = Utilities.file_list[Utilities.file_index].name;
+        }
 
-	var state_string = JSON.stringify(JSON.decycle(newstate));
-
-	// alert(state_string);
-	// Utilities.log(state_string);
-	/*
-	var new_win = window.open("","_blank", "resizable=yes, scrollbars=yes, titlebar=yes, width=1000, height=500, top=10, left=10");
-	new_win.document.title = "Save this in a file on your hard drive.";
-	new_win.document.writeln("** Save this text to your hard drive. Right-click here and use 'Save as...' or 'Save page as...'");
-	new_win.document.writeln("**");
-	new_win.document.writeln(state_string);
-	new_win.document.close();
-	returns false if user does not save
-	*/
-	try {
-		var blob = new Blob([state_string], {type: "text/plain;charset=utf-8"});
-		//var filename = window.prompt("File name:","FractionBarsSave.txt");
-
-// first attempt
-		var select_length = document.getElementById('id_filetext').selectedIndex;
-		if(select_length<0)
-		{
-			var filename = window.prompt("File name:","FractionBarsSave.txt");
-		}
-		else
-		{
-			var filename = Utilities.file_list[Utilities.file_index].name;
-		}
-//
-
-		if (filename!=null)
-		  {
-			saveAs(blob, filename);
-		  }
-		  else
-			  {
-				return false;
-			  }
-
-
-	}
-	catch(e){
-		if (Utilities.flag[3]) {
-							alert("Bu tarayıcı kaydetmeyi desteklememektedir. Tarayıcının \nHTML5 destekli olması gereklidir. \n\nEn iyi sonuç için lütfen Firefox, \nChrome, Safari ya da Internet Explorer tarayıcılarından birini kullanınız.");
-						} else {
-							alert("This browser does not support saving. \nHTML5 support is needed. \n\nFor best results use the most recent Firefox, \nChrome, Safari, or Internet Explorer browser.");
-
-						}
-		//alert("This browser does not support saving. \nHTML5 support is needed. \n\nFor best results use the most recent Firefox, \nChrome, Safari, or Internet Explorer browser.");
-	}
+        if (filename != null) {
+            saveAs(blob, filename);
+        } else {
+            return false;
+        }
+    } catch (e) {
+        alert("This browser does not support saving. \nHTML5 support is needed. \n\nFor best results use the most recent Firefox, \nChrome, Safari, or Internet Explorer browser.");
+    }
 };
 
 FractionBarsCanvas.prototype.openFileDialog = function() {
@@ -964,71 +963,96 @@ if (r==true)
 	}
 };
 FractionBarsCanvas.prototype.handleFileEvent = function(file_event) {
+    var file_contents = file_event.target.result;
+    var something = null;
 
+    try {
+        something = JSON.parse(file_contents);
+    } catch (e) {
+        var txt = "An error has occurred. \n\n";
+        txt += "Fraction Bars cannot open this file. \n\n";
+        txt += e.message;
+        alert(txt);
+        return;
+    }
 
-	var file_contents = file_event.target.result;
-	// var lines = file_contents.split("**");
-	// var text_state = lines[2].replace(/(\r\n|\n|\r)/gm,"");
-
-	var text_state = "";
-	var something = null;
-
-	try {
-		text_state = file_contents.replace(/(\r\n|\n|\r)/gm,"");
-		something = JSON.retrocycle(JSON.parse(text_state));
-	} catch (e) {
-		var txt = "An error has occurred. \n\n";
-		txt += "Fraction Bars cannot open this file. \n\n";
-		txt += e.message;
-		alert(txt);
-		return;
-	}
-
-
-	this.restoreBarsAndMatsFromJSON(something);
+    this.restoreBarsAndMatsFromJSON(something);
 };
 
+function sanitize(str) {
+    if (!str) return '';
+    return String(str).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 FractionBarsCanvas.prototype.restoreBarsAndMatsFromJSON = function(JSON_obj) {
+    this.bars = [];
+    this.mats = [];
+    this.selectedBars = [];
+    this.selectedMats = [];
+    this.unitBar = null;
 
-	this.bars = [];
-	this.mats = [];
-	this.selectedBars = [];
-	this.selectedMats = [];
-	this.unitBar = null;
-	len = 0;
+    if (Array.isArray(JSON_obj.bars)) {
+        for (var i = 0; i < JSON_obj.bars.length; i++) {
+            var barData = JSON_obj.bars[i];
+            if (typeof barData === 'object' && barData !== null) {
+                var newBar = new Bar(
+                    parseFloat(barData.x) || 0,
+                    parseFloat(barData.y) || 0,
+                    parseFloat(barData.w) || 0,
+                    parseFloat(barData.h) || 0,
+                    sanitize(barData.color) || '#FFFF66'
+                );
+                newBar.label = sanitize(barData.label);
+                newBar.fraction = sanitize(barData.fraction);
+                newBar.isUnitBar = !!barData.isUnitBar;
 
-	if( JSON_obj.mBars.length > 0 ) {
-		for( var i = 0; i < JSON_obj.mBars.length; i++ ) {
-			len = this.bars.push( Bar.copyFromJSON(JSON_obj.mBars[i]) ) ;
-			if (this.bars[len-1].isUnitBar) {
-				this.unitBar = this.bars[len-1];
-				this.bars[len-1].fraction = "1/1";
-			}
-		}
-	}
-	if( JSON_obj.mMats.length > 0 ) {
-		for( var j = 0; j < JSON_obj.mMats.length; j++ ) {
-			this.mats.push( Mat.copyFromJSON(JSON_obj.mMats[j]) ) ;
-		}
-	}
+                if (Array.isArray(barData.splits)) {
+                    for (var j = 0; j < barData.splits.length; j++) {
+                        var splitData = barData.splits[j];
+                        if (typeof splitData === 'object' && splitData !== null) {
+                            newBar.splits.push(new Split(
+                                parseFloat(splitData.x) || 0,
+                                parseFloat(splitData.y) || 0,
+                                parseFloat(splitData.w) || 0,
+                                parseFloat(splitData.h) || 0,
+                                sanitize(splitData.color) || '#FFFF66'
+                            ));
+                        }
+                    }
+                }
 
-//First attempt
-	var hiddenButtonsName1 = JSON_obj.mHidden.slice(0);
-	for( var ii = 0; ii < hiddenButtonsName1.length; ii++ ) {
-		if (hiddenButtonsName.indexOf(hiddenButtonsName1[ii])<0) {
-			hidden=document.getElementById(hiddenButtonsName1[ii]) ;
+                this.bars.push(newBar);
+                if (newBar.isUnitBar) {
+                    this.unitBar = newBar;
+                }
+            }
+        }
+    }
 
-			$(hidden).hide();
-			hiddenButtonsName.push(hiddenButtonsName1[ii]);
-			hiddenButtons.push($(hidden));
-		}
-	}
-//
+    if (Array.isArray(JSON_obj.mats)) {
+        for (var i = 0; i < JSON_obj.mats.length; i++) {
+            var matData = JSON_obj.mats[i];
+            if (typeof matData === 'object' && matData !== null) {
+                this.mats.push(new Mat(
+                    parseFloat(matData.x) || 0,
+                    parseFloat(matData.y) || 0,
+                    parseFloat(matData.w) || 0,
+                    parseFloat(matData.h) || 0,
+                    sanitize(matData.color) || '#888888'
+                ));
+            }
+        }
+    }
 
-	Utilities.ctrlKeyDown=true;
-	Utilities.ctrlKeyDown=true;
-	this.clearSelection();
-	this.refreshCanvas();
+    if (Array.isArray(JSON_obj.hiddenButtons)) {
+        for (var i = 0; i < JSON_obj.hiddenButtons.length; i++) {
+            var buttonId = sanitize(JSON_obj.hiddenButtons[i]);
+            hideButton(buttonId);
+        }
+    }
+
+    this.clearSelection();
+    this.refreshCanvas();
 };
 
 FractionBarsCanvas.prototype.print_canvas = function (){

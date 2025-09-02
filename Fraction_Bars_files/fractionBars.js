@@ -86,53 +86,59 @@ $(document).ready(function() {
 		fbContext.putImageData(fbImg,0,0);
 	});
 
-	$('#fbCanvas').mousemove(function(e) {
+	function getPointer(event, element) {
+		var x, y;
+		if (event.originalEvent.touches) {
+			x = event.originalEvent.touches[0].pageX - element.offset().left;
+			y = event.originalEvent.touches[0].pageY - element.offset().top;
+		} else {
+			x = event.pageX - element.offset().left;
+			y = event.pageY - element.offset().top;
+		}
+		return { x: x, y: y };
+	}
+
+	function mouseMoveHandler(e) {
 		fracEvent = e;
 		updateMouseLoc(e, $(this));
 		updateMouseAction('mousemove');
 
-		var p = Point.createFromMouseEvent(e, $(this)) ;
+		var p = Point.createFromMouseEvent(e, $(this));
 
 		if (fbCanvasObj.currentAction == "manualSplit") {
 			fbCanvasObj.manualSplitPoint = p;
 			fbCanvasObj.refreshCanvas();
 		}
 
-		if(fbCanvasObj.mouseDownLoc !== null) {
+		if (fbCanvasObj.mouseDownLoc !== null) {
 			fbCanvasObj.updateCanvas(p);
 		}
+	}
 
-//		if (fbCanvasObj.currentAction == "manualSplit") {
-//			fbCanvasObj.manualSplitXORDraw(p);
-//		}
-
-	});
-
-	$('#fbCanvas').mousedown(function(e) {
-
+	function mouseDownHandler(e) {
 		fbCanvasObj.check_for_drag = true;
 		fbCanvasObj.cacheUndoState();
 
 		updateMouseLoc(e, $(this));
 		updateMouseAction('mousedown');
-		fbCanvasObj.mouseDownLoc = Point.createFromMouseEvent(e, $(this)) ;
-		var b = fbCanvasObj.barClickedOn() ;
-		var m = fbCanvasObj.matClickedOn() ;
+		fbCanvasObj.mouseDownLoc = Point.createFromMouseEvent(e, $(this));
+		var b = fbCanvasObj.barClickedOn();
+		var m = fbCanvasObj.matClickedOn();
 
-		if( (fbCanvasObj.currentAction == 'bar') || (fbCanvasObj.currentAction == "mat")) {
-			fbCanvasObj.saveCanvas() ;
-		} else if( fbCanvasObj.currentAction == 'repeat' ) {
+		if ((fbCanvasObj.currentAction == 'bar') || (fbCanvasObj.currentAction == "mat")) {
+			fbCanvasObj.saveCanvas();
+		} else if (fbCanvasObj.currentAction == 'repeat') {
 			fbCanvasObj.addUndoState();
 			b.repeat(fbCanvasObj.mouseDownLoc);
 			fbCanvasObj.refreshCanvas();
 		} else {
 			// The click is being used to update the selected bars
-			if( b !== null ) {
-				if( $.inArray(b, fbCanvasObj.selectedBars) == -1) { // clicked on bar is not already selected
-					if( !Utilities.shiftKeyDown ) {
+			if (b !== null) {
+				if ($.inArray(b, fbCanvasObj.selectedBars) == -1) { // clicked on bar is not already selected
+					if (!Utilities.shiftKeyDown) {
 						fbCanvasObj.clearSelection();
 					}
-					$.each( fbCanvasObj.selectedBars, function(index, bar) {
+					$.each(fbCanvasObj.selectedBars, function (index, bar) {
 						bar.clearSplitSelection();
 					});
 					fbCanvasObj.barToFront(b);
@@ -140,10 +146,10 @@ $(document).ready(function() {
 					b.isSelected = true;
 					b.selectSplit(fbCanvasObj.mouseDownLoc);
 				} else {											// clicked bar is already selected
-					$.each( fbCanvasObj.selectedBars, function(index, bar) {
+					$.each(fbCanvasObj.selectedBars, function (index, bar) {
 						bar.clearSplitSelection();
 					});
-					if( !Utilities.shiftKeyDown ) {
+					if (!Utilities.shiftKeyDown) {
 						b.selectSplit(fbCanvasObj.mouseDownLoc);
 					} else {
 						fbCanvasObj.removeBarFromSelection(b);
@@ -153,15 +159,15 @@ $(document).ready(function() {
 				if (fbCanvasObj.currentAction == "manualSplit") {
 					fbCanvasObj.clearSelection();
 				}
-			} else if( m !== null ) {
-				if( $.inArray(m, fbCanvasObj.selectedMats) == -1) { // clicked on mat is not already selected
-					if( !Utilities.shiftKeyDown ) {
+			} else if (m !== null) {
+				if ($.inArray(m, fbCanvasObj.selectedMats) == -1) { // clicked on mat is not already selected
+					if (!Utilities.shiftKeyDown) {
 						fbCanvasObj.clearSelection();
 					}
 					m.isSelected = true;
 					fbCanvasObj.selectedMats.push(m);
 				} else {  // Clicked on mat is already selected
-					if( Utilities.shiftKeyDown ) {
+					if (Utilities.shiftKeyDown) {
 						fbCanvasObj.removeMatFromSelection(m);
 					}
 				}
@@ -170,37 +176,88 @@ $(document).ready(function() {
 			}
 			fbCanvasObj.refreshCanvas();
 		}
-	}) ;
+	}
 
-	$('#fbCanvas').mouseup(function(e) {
+	function mouseUpHandler(e) {
 		updateMouseLoc(e, $(this));
 		updateMouseAction('mouseup');
 
-		fbCanvasObj.mouseUpLoc = Point.createFromMouseEvent(e, $(this)) ;
+		fbCanvasObj.mouseUpLoc = Point.createFromMouseEvent(e, $(this));
 
 
-		if( fbCanvasObj.currentAction == 'bar' ) {
+		if (fbCanvasObj.currentAction == 'bar') {
 			fbCanvasObj.addUndoState();
-			fbCanvasObj.addBar() ;
-			fbCanvasObj.clear_selection_button ();
+			fbCanvasObj.addBar();
+			fbCanvasObj.clear_selection_button();
 
 		} else if (fbCanvasObj.currentAction == 'mat') {
 			fbCanvasObj.addUndoState();
 			fbCanvasObj.addMat();
-			fbCanvasObj.clear_selection_button ();
+			fbCanvasObj.clear_selection_button();
 		}
 
 
-		if (fbCanvasObj.found_a_drag){
+		if (fbCanvasObj.found_a_drag) {
 			fbCanvasObj.finalizeCachedUndoState();
 			fbCanvasObj.check_for_drag = false;
 		}
 
-		fbCanvasObj.mouseUpLoc = null ;
-		fbCanvasObj.mouseDownLoc = null ;
-		fbCanvasObj.mouseLastLoc = null ;
+		fbCanvasObj.mouseUpLoc = null;
+		fbCanvasObj.mouseDownLoc = null;
+		fbCanvasObj.mouseLastLoc = null;
+	}
 
-	}) ;
+	$('#fbCanvas').on('mousemove', mouseMoveHandler);
+	$('#fbCanvas').on('mousedown', mouseDownHandler);
+	$('#fbCanvas').on('mouseup', mouseUpHandler);
+
+	$('#fbCanvas').on('touchmove', function (e) {
+		e.preventDefault();
+		var touch = e.originalEvent.touches[0] || e.originalEvent.changedTouches[0];
+		var elm = $(this).offset();
+		var x = touch.pageX - elm.left;
+		var y = touch.pageY - elm.top;
+		var new_event = {
+			pageX: touch.pageX,
+			pageY: touch.pageY,
+			clientX: touch.clientX,
+			clientY: touch.clientY
+		};
+		mouseMoveHandler.call(this, new_event);
+	});
+
+	$('#fbCanvas').on('touchstart', function (e) {
+		e.preventDefault();
+		var touch = e.originalEvent.touches[0] || e.originalEvent.changedTouches[0];
+		var elm = $(this).offset();
+		var x = touch.pageX - elm.left;
+		var y = touch.pageY - elm.top;
+		var new_event = {
+			pageX: touch.pageX,
+			pageY: touch.pageY,
+			clientX: touch.clientX,
+			clientY: touch.clientY
+		};
+		mouseDownHandler.call(this, new_event);
+	});
+
+	$('#fbCanvas').on('touchend', function (e) {
+		e.preventDefault();
+		var touch = e.originalEvent.touches[0] || e.originalEvent.changedTouches[0];
+		var new_event = {};
+		if (touch) {
+			var elm = $(this).offset();
+			var x = touch.pageX - elm.left;
+			var y = touch.pageY - elm.top;
+			new_event = {
+				pageX: touch.pageX,
+				pageY: touch.pageY,
+				clientX: touch.clientX,
+				clientY: touch.clientY
+			};
+		}
+		mouseUpHandler.call(this, new_event);
+	});
 
 	$('.colorBlock').click(function(e) {
 		fbCanvasObj.setFillColor( $(this).css('background-color'));

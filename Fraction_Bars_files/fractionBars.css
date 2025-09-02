@@ -43,16 +43,35 @@ a {
 	width: 80px ;
 	text-align: center ;
 	margin: 4px ;
-	padding: 2px ;
+	padding: 8px ;
+	cursor: pointer;
 }
 
 #tools .toolGroup a.colorBlock {
 	float: left;
 	border: 1px solid gray;
-	width: 10px;
-	height: 10px;
+	width: 20px;
+	height: 20px;
 	display: inline;
 	margin: 3px 3px 4px 4px;
+	cursor: pointer;
+}
+
+@media (max-width: 768px) {
+	#tools {
+		width: 100%;
+		float: none;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+	}
+	#tools .toolGroup {
+		margin-bottom: 0;
+	}
+	#fbCanvas {
+		width: 100%;
+		height: auto;
+	}
 }
 
 #tools .toolGroup a.colorBlock1 {
