@@ -71,4 +71,23 @@ struct Bar: Codable, Equatable, Identifiable {
         let colorComponents = try container.decode([CGFloat].self, forKey: .color)
         color = Color(.sRGB, red: colorComponents[0], green: colorComponents[1], blue: colorComponents[2], opacity: colorComponents[3])
     }
+
+    mutating func split(into count: Int) {
+        guard count > 0 else { return }
+
+        splits.removeAll()
+
+        let splitWidth = w / CGFloat(count)
+        for i in 0..<count {
+            let splitX = CGFloat(i) * splitWidth
+            let newSplit = Split(
+                x: splitX,
+                y: 0,
+                w: splitWidth,
+                h: h,
+                color: self.color // Splits inherit bar's color initially
+            )
+            splits.append(newSplit)
+        }
+    }
 }

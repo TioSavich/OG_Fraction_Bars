@@ -23,12 +23,45 @@ struct ToolbarView: View {
 
                 // Group 2: Actions
                 ToolButtonGroup {
-                    Button(action: { /* copy */ }) {
+                    Button(action: { viewModel.copySelected() }) {
                         Image(systemName: "doc.on.doc")
                     }
+                    .disabled(viewModel.selectedBarIDs.isEmpty)
+
+                    Button(action: { viewModel.joinSelectedBars() }) {
+                        Image(systemName: "link")
+                    }
+                    .disabled(viewModel.selectedBarIDs.count != 2)
+
                     Button(action: { viewModel.deleteSelected() }) {
                         Image(systemName: "trash")
                     }
+                }
+
+                // Group 3: Splitting
+                ToolButtonGroup {
+                    Button(action: { viewModel.showingSplitDialog = true }) {
+                        Image(systemName: "square.split.1x2")
+                    }
+                    .disabled(viewModel.selectedBarIDs.isEmpty)
+                }
+
+                // Group 4: Measurement
+                ToolButtonGroup {
+                    Button(action: { viewModel.setUnitBar() }) {
+                        Image(systemName: "ruler")
+                    }
+                    .disabled(viewModel.selectedBarIDs.count != 1)
+
+                    Button(action: { viewModel.measureSelectedBars() }) {
+                        Image(systemName: "scalemass")
+                    }
+                    .disabled(viewModel.unitBarID == nil || viewModel.selectedBarIDs.isEmpty)
+
+                    Button(action: { viewModel.isEditingLabel = true }) {
+                        Image(systemName: "tag")
+                    }
+                    .disabled(viewModel.selectedBarIDs.count != 1)
                 }
 
                 // Group 5: File & History

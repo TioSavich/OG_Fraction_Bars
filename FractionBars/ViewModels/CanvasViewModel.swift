@@ -9,6 +9,21 @@ class CanvasViewModel: ObservableObject {
     @Published var currentTool: Tool = .select
     @Published var newObjectRect: CGRect?
     @Published var currentColor: Color = .yellow
+    @Published var showingSplitDialog = false
+    @Published var isEditingLabel = false
+    @Published var unitBarID: UUID?
+
+    var selectedBar: Binding<Bar>? {
+        guard selectedBarIDs.count == 1,
+              let barId = selectedBarIDs.first,
+              let index = bars.firstIndex(where: { $0.id == barId }) else {
+            return nil
+        }
+        return .init(
+            get: { self.bars[index] },
+            set: { self.bars[index] = $0 }
+        )
+    }
 
     private var initialDragPositions: [UUID: CGPoint] = [:]
 
@@ -38,6 +53,54 @@ class CanvasViewModel: ObservableObject {
         mats.append(newMat)
     }
 
+    func copySelected() {
+        addUndoState()
+
+        var newBars: [Bar] = []
+        let offset: CGFloat = 20
+
+        for i in 0..<bars.count {
+            if selectedBarIDs.contains(bars[i].id) {
+                var newBar = bars[i]
+                newBar.id = UUID()
+                newBar.x += offset
+                newBar.y += offset
+                newBar.isSelected = true
+                bars[i].isSelected = false
+                newBars.append(newBar)
+            }
+        }
+
+        selectedBarIDs.removeAll()
+        for bar in newBars {
+            bars.append(bar)
+            selectedBarIDs.insert(bar.id)
+        }
+    }
+
+    func joinSelectedBars() {
+        guard selectedBarIDs.count == 2 else { return }
+
+        let selected = bars.filter { selectedBarIDs.contains($0.id) }
+
+        guard let firstBar = selected.first, let secondBar = selected.last else { return }
+
+        addUndoState()
+
+        let newBar = Bar(
+            x: firstBar.x,
+            y: firstBar.y,
+            w: firstBar.w + secondBar.w,
+            h: firstBar.h, // Assume same height
+            color: firstBar.color
+        )
+
+        bars.removeAll { selectedBarIDs.contains($0.id) }
+        selectedBarIDs.removeAll()
+
+        bars.append(newBar)
+    }
+
     func deleteSelected() {
         addUndoState()
         bars.removeAll { selectedBarIDs.contains($0.id) }
@@ -46,16 +109,28 @@ class CanvasViewModel: ObservableObject {
         selectedMatIDs.removeAll()
     }
 
-    func selectBar(at point: CGPoint) {
-        // This is a selection change, not an undoable action in this implementation
-        bars = bars.map { var bar = $0; bar.isSelected = false; return bar }
-        selectedBarIDs.removeAll()
-
+    func selectObject(at point: CGPoint) {
         if let index = bars.lastIndex(where: { bar in
             CGRect(x: bar.x, y: bar.y, width: bar.w, height: bar.h).contains(point)
         }) {
-            bars[index].isSelected = true
-            selectedBarIDs.insert(bars[index].id)
+            bars[index].isSelected.toggle()
+            if bars[index].isSelected {
+                selectedBarIDs.insert(bars[index].id)
+            } else {
+                selectedBarIDs.remove(bars[index].id)
+            }
+            return
+        }
+
+        if let index = mats.lastIndex(where: { mat in
+            CGRect(x: mat.x, y: mat.y, width: mat.w, height: mat.h).contains(point)
+        }) {
+            mats[index].isSelected.toggle()
+            if mats[index].isSelected {
+                selectedMatIDs.insert(mats[index].id)
+            } else {
+                selectedMatIDs.remove(mats[index].id)
+            }
         }
     }
 
@@ -67,13 +142,57 @@ class CanvasViewModel: ObservableObject {
                 initialDragPositions[bar.id] = CGPoint(x: bar.x, y: bar.y)
             }
         }
+        for mat in mats {
+            if mat.isSelected {
+                initialDragPositions[mat.id] = CGPoint(x: mat.x, y: mat.y)
+            }
+        }
     }
 
-    func dragSelectedBars(by offset: CGSize) {
+    func setUnitBar() {
+        guard selectedBarIDs.count == 1, let barId = selectedBarIDs.first else { return }
+        addUndoState()
+        unitBarID = barId
+        for i in 0..<bars.count {
+            bars[i].isUnitBar = (bars[i].id == barId)
+        }
+    }
+
+    func measureSelectedBars() {
+        guard let unitBarID = unitBarID,
+              let unitBar = bars.first(where: { $0.id == unitBarID }) else { return }
+
+        addUndoState()
+
+        for i in 0..<bars.count {
+            if selectedBarIDs.contains(bars[i].id) {
+                let ratio = bars[i].w / unitBar.w
+                // Simple formatting, can be improved to find common denominators
+                bars[i].fraction = String(format: "%.2f", ratio)
+            }
+        }
+    }
+
+    func splitSelectedBars(into count: Int) {
+        addUndoState()
+        for i in 0..<bars.count {
+            if selectedBarIDs.contains(bars[i].id) {
+                bars[i].split(into: count)
+            }
+        }
+    }
+
+    func dragSelectedObjects(by offset: CGSize) {
         for i in 0..<bars.count {
             if let initialPosition = initialDragPositions[bars[i].id] {
                 bars[i].x = initialPosition.x + offset.width
                 bars[i].y = initialPosition.y + offset.height
+            }
+        }
+        for i in 0..<mats.count {
+            if let initialPosition = initialDragPositions[mats[i].id] {
+                mats[i].x = initialPosition.x + offset.width
+                mats[i].y = initialPosition.y + offset.height
             }
         }
     }
